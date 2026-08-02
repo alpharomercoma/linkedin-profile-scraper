@@ -3,6 +3,8 @@
 Give it a LinkedIn username, get back a normalized JSON profile. Unauthenticated:
 no login, no `li_at` cookie, nothing that can get an account restricted.
 
+Live: [profilescraper.vercel.app/linkedin](https://profilescraper.vercel.app/linkedin)
+
 ```console
 $ uv run lps scrape williamhgates
 {
