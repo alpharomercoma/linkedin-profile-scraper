@@ -56,6 +56,7 @@ async def healthz() -> dict:
         "strategy": settings.strategy,
         "proxies": len(settings.proxies),
         "captcha_solver": settings.captcha_provider if settings.captcha_enabled else None,
+        "auth_required": bool(settings.api_key),
     }
 
 
@@ -127,10 +128,14 @@ async def linkedin_search(
 
 @api.get("/profile/{username}", response_model=Profile, response_model_by_alias=True)
 async def get_profile(
+    request: Request,
     username: str,
     strategy: str | None = Query(None, pattern="^(auto|http|browser)$"),
     refresh: bool = Query(False, description="Bypass the raw HTML cache"),
 ) -> Profile:
+    # Gated too: leaving this open would keep the same scraping proxy available
+    # under a different path.
+    _require_key(request)
     async with _semaphore:
         try:
             return await asyncio.to_thread(

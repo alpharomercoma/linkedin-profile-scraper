@@ -67,10 +67,11 @@
 <main>
   <h1>LinkedIn Profile Scraper</h1>
   <p class="sub">Unauthenticated public-profile lookup. No login, no cookie.
-     Calls <code>GET /profile/{username}</code> on this server.</p>
+     Calls <code>GET /api/linkedin?q=</code> on this server. Accepts a name,
+     a username, or a profile URL.</p>
 
   <form id="f">
-    <input id="u" name="u" placeholder="username or profile URL, e.g. williamhgates" value="williamhgates" autocomplete="off">
+    <input id="u" name="u" placeholder="name, username, or profile URL" value="williamhgates" autocomplete="off">
     <select id="strategy" title="fetch strategy">
       <option value="auto">auto</option>
       <option value="http">http</option>
@@ -79,6 +80,14 @@
     <label class="check"><input type="checkbox" id="refresh"> bypass cache</label>
     <button id="go" type="submit">Scrape</button>
   </form>
+
+  <p id="keyrow" class="sub" hidden>
+    <label class="check" style="display:inline-flex">API key
+      <input id="key" type="password" placeholder="X-API-Key" autocomplete="off"
+             style="flex:0 1 18rem">
+    </label>
+    <span class="where">Kept in this browser only, sent as the X-API-Key header.</span>
+  </p>
 
   <p id="status"></p>
 
@@ -174,16 +183,23 @@ $("f").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const user = $("u").value.trim();
   if (!user) return;
-  const slug = user.includes("/in/") ? user.split("/in/")[1].replace(/[/?#].*$/, "") : user;
-  const qs = new URLSearchParams({ strategy: $("strategy").value, refresh: $("refresh").checked });
+  // The endpoint resolves a name, a username or a URL, so pass the query
+  // through untouched rather than guessing at a slug here.
+  const qs = new URLSearchParams({
+    q: user, strategy: $("strategy").value, refresh: $("refresh").checked,
+  });
 
   $("go").disabled = true;
   $("status").className = "";
-  $("status").textContent = `fetching /profile/${slug}… (the browser strategy can take ~30s)`;
+  $("status").textContent = `looking up ${user}. The browser strategy can take ~30s.`;
   const started = performance.now();
 
   try {
-    const res = await fetch(`/profile/${encodeURIComponent(slug)}?${qs}`);
+    const key = $("key").value.trim();
+    if (key) localStorage.setItem("lps_key", key);
+    const res = await fetch(`/api/linkedin?${qs}`, {
+      headers: key ? { "X-API-Key": key } : {},
+    });
     const body = await res.json();
     $("raw").textContent = JSON.stringify(body, null, 2);
     const secs = ((performance.now() - started) / 1000).toFixed(1);
@@ -195,8 +211,9 @@ $("f").addEventListener("submit", async (ev) => {
     } else {
       $("view").innerHTML = `<p class="empty">${esc(body.detail || res.statusText)}</p>`;
       $("status").className = "err";
-      $("status").textContent = `${res.status} in ${secs}s. ${res.status === 404
-        ? "profile does not exist"
+      $("status").textContent = `${res.status} in ${secs}s. ${
+        res.status === 404 ? "no public profile found for that query"
+        : res.status === 401 ? "this instance needs an API key. Enter it above."
         : "every source was blocked; see attempts in the raw JSON"}`;
     }
   } catch (e) {
@@ -206,6 +223,17 @@ $("f").addEventListener("submit", async (ev) => {
     $("go").disabled = false;
   }
 });
+
+// Show the key field only where the server actually requires one.
+(async () => {
+  try {
+    const health = await (await fetch("/healthz")).json();
+    if (health.auth_required) {
+      $("keyrow").hidden = false;
+      $("key").value = localStorage.getItem("lps_key") || "";
+    }
+  } catch { /* health check is advisory only */ }
+})();
 </script>
 </body>
 </html>
