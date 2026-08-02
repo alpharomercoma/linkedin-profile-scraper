@@ -16,3 +16,5 @@ wheels/
 probe-report.json
 proxies.txt
 .pytest_cache/
+.vercel
+.env*

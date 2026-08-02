@@ -22,6 +22,9 @@ dependencies = [
 [project.scripts]
 lps = "lps.cli:app"
 
+[tool.vercel]
+entrypoint = "api.index:app"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
