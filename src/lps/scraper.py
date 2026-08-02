@@ -73,6 +73,42 @@ def scrape_profile(
     return profile
 
 
+def scrape_query(
+    query: str,
+    settings: Settings | None = None,
+    strategy: str | None = None,
+    use_cache: bool = True,
+) -> Profile:
+    """Scrape from a username, a profile URL, or a person's name.
+
+    A name goes through LinkedIn's public directory first. The pick and the
+    other candidates are both recorded in `_meta`, so an ambiguous name is
+    visible rather than silently resolved to the wrong person.
+    """
+    from .search import looks_like_slug, search_people
+
+    settings = settings or default_settings
+    query = (query or "").strip()
+    if not query:
+        raise ValueError("empty query")
+
+    if looks_like_slug(query):
+        profile = scrape_profile(query, settings, strategy=strategy, use_cache=use_cache)
+        profile.meta.query = query
+        profile.meta.resolved_from = "url" if "linkedin.com" in query else "slug"
+        return profile
+
+    hits = search_people(query, settings)
+    if not hits:
+        raise ProfileNotFound(f"no public profile found for {query!r}")
+
+    profile = scrape_profile(hits[0].username, settings, strategy=strategy, use_cache=use_cache)
+    profile.meta.query = query
+    profile.meta.resolved_from = "name-search"
+    profile.meta.candidates = hits
+    return profile
+
+
 @dataclass
 class ProbeRow:
     endpoint: str

@@ -50,6 +50,9 @@ class Settings(BaseSettings):
 
     # api
     api_max_concurrency: int = 2
+    #: When set, /api/linkedin requires it via X-API-Key or ?key=. Leave unset
+    #: only for a deployment you are happy for anyone to use.
+    api_key: str | None = None
 
     @field_validator("proxies", mode="before")
     @classmethod

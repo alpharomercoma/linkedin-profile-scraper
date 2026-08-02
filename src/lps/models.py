@@ -122,6 +122,16 @@ class Volunteering(Keyed):
 
 
 
+class SearchHit(Base):
+    """One result from LinkedIn's public people directory."""
+
+    username: str
+    url: str | None = None
+    name: str | None = None
+    location: str | None = None
+    summary: str | None = None
+
+
 class Meta(Base):
     fetched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     source_url: str | None = None
@@ -138,6 +148,11 @@ class Meta(Base):
     #: field -> how many entries LinkedIn withheld. An empty list plus a count
     #: here means "hidden from logged-out visitors", not "this person has none".
     redacted_counts: dict[str, int] = Field(default_factory=dict)
+    #: Set when a free-text name was resolved to this profile, so the caller
+    #: can see which person was picked and who else matched.
+    query: str | None = None
+    resolved_from: str | None = None  # slug | url | name-search
+    candidates: list["SearchHit"] = Field(default_factory=list)
 
 
 class Profile(Base):

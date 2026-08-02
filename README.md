@@ -42,10 +42,47 @@ uv run lps parse-file .cache/ada/<hash>.html   # re-parse a cached page offline
 uv run lps serve --port 8000          # HTTP API
 ```
 
+### HTTP API
+
 ```console
-GET /profile/{username}?strategy=auto&refresh=false   -> Profile JSON
-GET /healthz
+GET  /api/linkedin?q=Alpha%20Romer%20Coma     # name, username, or profile URL
+GET  /api/linkedin?q=williamhgates&refresh=true
+POST /api/linkedin                            # {"q": "...", "strategy": "...", "refresh": false}
+GET  /api/linkedin/search?q=Bill%20Gates      # resolve a name without scraping
+GET  /profile/{username}                      # when you already have the slug
+GET  /healthz
+GET  /linkedin                                # browser UI
 ```
+
+`q` accepts three things. A username or profile URL is used directly. A name
+with a space is resolved through LinkedIn's public people directory, which
+answers without a session. Names are rarely unique, so the pick and every other
+candidate both land in `_meta`:
+
+```json
+"_meta": {
+  "query": "Alpha Romer Coma",
+  "resolved_from": "name-search",
+  "candidates": [
+    {"username": "alpharomercoma", "location": "San Francisco Bay Area"},
+    {"username": "alpha-romer-coma-470875390", "location": "San Jose del Monte"}
+  ]
+}
+```
+
+**GET or POST.** Use GET. The lookup is read-only and idempotent, so GET
+responses carry `Cache-Control: public, s-maxage=3600`, and repeats are served
+by the CDN without re-hitting LinkedIn. That caching is the only real speed
+difference between the two verbs; a cold request costs the same either way.
+POST exists for one reason: a URL query string ends up in server logs, browser
+history and `Referer` headers, while a body does not. If the names you look up
+are themselves sensitive, POST and accept the loss of caching. For public
+profile lookups GET is the better default.
+
+**Protect it if you deploy it.** This endpoint scrapes on the caller's behalf,
+so an open deployment is a proxy anyone can point at LinkedIn using your
+function quota and your IP reputation. Set `LPS_API_KEY` and requests must
+carry `X-API-Key` or `?key=`. Unset, as on the demo, it is open.
 
 Exit codes: `0` ok, `3` every source blocked, `4` profile does not exist,
 `5` challenge/CAPTCHA detected.

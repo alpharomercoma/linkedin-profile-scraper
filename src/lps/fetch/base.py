@@ -47,8 +47,13 @@ def title_of(html: str) -> str:
     return re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
 
 
-def block_reason(result: FetchResult) -> str | None:
-    """Return a human-readable reason the response is unusable, or None."""
+def block_reason(result: FetchResult, min_size: int = MIN_BODY_BYTES) -> str | None:
+    """Return a human-readable reason the response is unusable, or None.
+
+    `min_size` is caller-scoped: the floor that identifies an interstitial in
+    place of a profile page is far too high for smaller responses such as a
+    directory search result.
+    """
     if result.error:
         return f"transport error: {result.error}"
     if result.status in _BLOCKED_STATUSES:
@@ -63,7 +68,7 @@ def block_reason(result: FetchResult) -> str | None:
         if path in lowered_url:
             return f"redirected to {path}"
 
-    if result.size < MIN_BODY_BYTES:
+    if result.size < min_size:
         return f"body too small ({result.size} bytes)"
 
     lowered = result.html.lower()
