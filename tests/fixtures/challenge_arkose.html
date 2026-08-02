@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Security Verification | LinkedIn</title></head>
+<body>
+<div id="captcha-internal" class="challenge-error-page">
+  <div id="fc-iframe-wrap">
+    <iframe src="https://linkedin-api.arkoselabs.com/fc/api/?public_key=3117BF26-4762-4F5A-8ED9-A85E69209A46"></iframe>
+  </div>
+  <script>
+    var captchaConfig = {
+      "publicKey": "3117BF26-4762-4F5A-8ED9-A85E69209A46",
+      "serviceUrl": "https://linkedin-api.arkoselabs.com"
+    };
+  </script>
+  <form action="/checkpoint/challenge/verify" method="post">
+    <input type="hidden" name="captcha-response" value="">
+  </form>
+</div>
+</body>
+</html>

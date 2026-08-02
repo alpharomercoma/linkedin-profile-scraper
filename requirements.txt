@@ -1,0 +1,5 @@
+curl-cffi>=0.16.0
+fastapi>=0.141.1
+pydantic>=2.13.4
+pydantic-settings>=2.14.2
+selectolax>=0.4.11

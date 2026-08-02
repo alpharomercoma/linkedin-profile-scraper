@@ -1,0 +1,7 @@
+.cache/
+.patchright-profile/
+.venv/
+tests/
+probe-report.json
+proxies.txt
+Dockerfile

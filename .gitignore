@@ -1,0 +1,18 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Runtime artifacts
+.env
+.cache/
+.patchright-profile/
+probe-report.json
+proxies.txt
+.pytest_cache/

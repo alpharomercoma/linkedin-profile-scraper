@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LinkedIn Profile Scraper</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --ink: #14171a; --muted: #656d76;
+    --line: #d8dee4; --accent: #0a66c2; --ok: #1a7f37; --warn: #9a6700; --err: #cf222e;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --panel: #161b22; --ink: #e6edf3; --muted: #8d96a0;
+      --line: #30363d; --accent: #4493f8; --ok: #3fb950; --warn: #d29922; --err: #f85149;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1.25rem 4rem; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 68rem; margin: 0 auto; }
+  h1 { font-size: 1.35rem; margin: 0 0 .25rem; letter-spacing: -.01em; }
+  .sub { color: var(--muted); margin: 0 0 1.5rem; font-size: .9rem; }
+  form { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+  input, select, button {
+    font: inherit; padding: .55rem .7rem; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--panel); color: var(--ink);
+  }
+  input { flex: 1 1 22rem; min-width: 0; }
+  button { background: var(--accent); border-color: var(--accent); color: #fff; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: progress; }
+  label.check { display: flex; align-items: center; gap: .4rem; color: var(--muted); font-size: .85rem; }
+  #status { margin: 0 0 1rem; font-size: .9rem; color: var(--muted); min-height: 1.4em; }
+  #status.err { color: var(--err); }
+  #status.ok { color: var(--ok); }
+  .grid { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 62rem) { .grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; }
+  .card h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em;
+             color: var(--muted); margin: 0 0 .75rem; font-weight: 600; }
+  pre { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.5;
+        overflow-x: auto; white-space: pre; }
+  .head { display: flex; gap: .9rem; align-items: flex-start; margin-bottom: .8rem; }
+  .head img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); }
+  .head .name { font-weight: 650; font-size: 1.1rem; }
+  .head .line { color: var(--muted); font-size: .88rem; }
+  dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .3rem .9rem; margin: 0 0 1rem; font-size: .9rem; }
+  dt { color: var(--muted); }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  ul.entries { list-style: none; margin: 0 0 1rem; padding: 0; }
+  ul.entries li { padding: .5rem 0; border-top: 1px solid var(--line); font-size: .9rem; }
+  ul.entries li .where { color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .chip { font-size: .78rem; padding: .15rem .5rem; border: 1px solid var(--line);
+          border-radius: 999px; color: var(--muted); font-family: var(--mono); }
+  .empty { color: var(--muted); font-style: italic; font-size: .88rem; }
+  .banner { border: 1px solid var(--warn); border-radius: 6px; padding: .55rem .7rem;
+            margin-bottom: .9rem; font-size: .85rem; color: var(--warn); }
+  footer { margin-top: 2rem; color: var(--muted); font-size: .8rem; }
+  code { font-family: var(--mono); font-size: .85em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>LinkedIn Profile Scraper</h1>
+  <p class="sub">Unauthenticated public-profile lookup. No login, no cookie.
+     Calls <code>GET /profile/{username}</code> on this server.</p>
+
+  <form id="f">
+    <input id="u" name="u" placeholder="username or profile URL, e.g. williamhgates" value="williamhgates" autocomplete="off">
+    <select id="strategy" title="fetch strategy">
+      <option value="auto">auto</option>
+      <option value="http">http</option>
+      <option value="browser">browser</option>
+    </select>
+    <label class="check"><input type="checkbox" id="refresh"> bypass cache</label>
+    <button id="go" type="submit">Scrape</button>
+  </form>
+
+  <p id="status"></p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Parsed profile</h2>
+      <div id="view"><p class="empty">Nothing scraped yet.</p></div>
+    </section>
+    <section class="card">
+      <h2>Raw JSON</h2>
+      <pre id="raw">n/a</pre>
+    </section>
+  </div>
+
+  <footer>
+    API docs at <a href="/docs">/docs</a>. Health at <a href="/healthz">/healthz</a>.
+    Automated collection from LinkedIn is against their Terms of Service.
+  </footer>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function dates(d) {
+  if (!d) return "";
+  if (d.raw) return d.raw;
+  return [d.start, d.end].filter(Boolean).join(" to ");
+}
+
+function entries(items, primary, secondary) {
+  if (!items || !items.length) return '<p class="empty">none exposed to logged-out visitors</p>';
+  return '<ul class="entries">' + items.map(i => `
+    <li><strong>${esc(i[primary] || "n/a")}</strong>
+        <span class="where">${esc(i[secondary] || "")}</span>
+        <span class="where">${esc(dates(i.dates))}</span></li>`).join("") + "</ul>";
+}
+
+function render(p) {
+  const m = p._meta || {};
+  const rows = [
+    ["location", p.location], ["country", p.country],
+    ["current", [p.current_title, p.current_company].filter(Boolean).join(" @ ")],
+    ["followers", p.follower_count?.toLocaleString?.()],
+    ["connections", p.connection_count_text || p.connection_count],
+    ["badge", p.creator_badge],
+    ["fetched via", `${m.fetched_via || "?"} (status ${m.status ?? "n/a"})`],
+    ["source", m.source_url],
+  ].filter(([, v]) => v !== null && v !== undefined && v !== "");
+
+  const red = m.redacted_counts || {};
+  const banner = m.redacted
+    ? `<div class="banner">LinkedIn redacted this profile for logged-out visitors.
+        Withheld: ${esc(Object.entries(red).map(([k, v]) => `${k} ×${v}`).join(", "))}.
+        Empty sections below mean <em>hidden</em>, not <em>none</em>.</div>`
+    : "";
+
+  $("view").innerHTML = `
+    ${banner}
+    <div class="head">
+      ${p.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : ""}
+      <div>
+        <div class="name">${esc(p.full_name || "(no name parsed)")}</div>
+        <div class="line">${esc(p.headline || "")}</div>
+      </div>
+    </div>
+    <dl>${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+    ${p.about ? `<p style="font-size:.9rem">${esc(p.about)}</p>` : ""}
+    <h2>Experience (${(p.experience || []).length})</h2>
+    ${entries(p.experience, "title", "company")}
+    <h2>Education (${(p.education || []).length})</h2>
+    ${entries(p.education, "school", "degree")}
+    ${["volunteering", "certifications", "languages", "honors", "publications", "courses",
+       "projects", "patents", "organizations", "test_scores"]
+        .filter(k => (p[k] || []).length)
+        .map(k => `<h2>${esc(k.replace("_", " "))} (${p[k].length})</h2>` +
+             entries(p[k], k === "volunteering" ? "role" : "name",
+                           k === "volunteering" ? "organization" : "issuer")).join("")}
+    ${(p.recommendations || []).length ? `<h2>Recommendations (${p.recommendations.length})</h2>
+      <ul class="entries">${p.recommendations.map(r =>
+        `<li><strong>${esc(r.author || "n/a")}</strong>
+             <span class="where">${esc((r.text || "").slice(0, 160))}</span></li>`).join("")}</ul>` : ""}
+    <h2>Skills</h2>
+    ${(p.skills || []).length
+        ? `<div class="chips">${p.skills.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div>`
+        : '<p class="empty">none exposed to logged-out visitors</p>'}
+    <h2>Field provenance</h2>
+    <div class="chips">${Object.entries(m.field_sources || {})
+        .map(([k, v]) => `<span class="chip">${esc(k)} &larr; ${esc(v)}</span>`).join("") || "n/a"}</div>`;
+}
+
+$("f").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const user = $("u").value.trim();
+  if (!user) return;
+  const slug = user.includes("/in/") ? user.split("/in/")[1].replace(/[/?#].*$/, "") : user;
+  const qs = new URLSearchParams({ strategy: $("strategy").value, refresh: $("refresh").checked });
+
+  $("go").disabled = true;
+  $("status").className = "";
+  $("status").textContent = `fetching /profile/${slug}… (the browser strategy can take ~30s)`;
+  const started = performance.now();
+
+  try {
+    const res = await fetch(`/profile/${encodeURIComponent(slug)}?${qs}`);
+    const body = await res.json();
+    $("raw").textContent = JSON.stringify(body, null, 2);
+    const secs = ((performance.now() - started) / 1000).toFixed(1);
+
+    if (res.ok) {
+      render(body);
+      $("status").className = "ok";
+      $("status").textContent = `${res.status} in ${secs}s via ${body._meta?.fetched_via}`;
+    } else {
+      $("view").innerHTML = `<p class="empty">${esc(body.detail || res.statusText)}</p>`;
+      $("status").className = "err";
+      $("status").textContent = `${res.status} in ${secs}s. ${res.status === 404
+        ? "profile does not exist"
+        : "every source was blocked; see attempts in the raw JSON"}`;
+    }
+  } catch (e) {
+    $("status").className = "err";
+    $("status").textContent = `request failed: ${e}`;
+  } finally {
+    $("go").disabled = false;
+  }
+});
+</script>
+</body>
+</html>

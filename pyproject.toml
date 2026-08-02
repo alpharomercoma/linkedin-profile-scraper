@@ -1,0 +1,36 @@
+[project]
+name = "lps"
+version = "0.1.0"
+description = "Unauthenticated LinkedIn public profile scraper returning normalized JSON"
+readme = "README.md"
+authors = [
+    { name = "Alpha Romer Coma", email = "alpharomercoma@proton.me" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "curl-cffi>=0.16.0",
+    "fastapi>=0.141.1",
+    "patchright>=1.61.2",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "python-dotenv>=1.2.2",
+    "selectolax>=0.4.11",
+    "typer>=0.27.0",
+    "uvicorn[standard]>=0.52.1",
+]
+
+[project.scripts]
+lps = "lps.cli:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["uv_build>=0.11.28,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
